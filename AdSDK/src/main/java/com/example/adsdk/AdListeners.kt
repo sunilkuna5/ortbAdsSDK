@@ -33,4 +33,3 @@ interface NativeAdListener : BaseAdListener {
 
 // Forward declaration for NativeAd class for the listener
 // class NativeAd(context: android.content.Context, adUnitId: String) {} // No longer needed here
-```
