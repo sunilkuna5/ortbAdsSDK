@@ -112,7 +112,10 @@ class MraidJsInterface(
         Log.d(TAG, "JS_CMD: close()")
         handler.post {
             when (state) {
-                MraidState.LOADING -> { /* No specific action, but log */ Log.d(TAG, "close() called in LOADING state.")}
+                MraidState.LOADING -> {
+                    // No specific action, but log
+                    Log.d(TAG, "close() called in LOADING state.")
+                }
                 MraidState.DEFAULT -> {
                     // Hide the ad container
                     updateState(MraidState.HIDDEN)
@@ -180,7 +183,7 @@ class MraidJsInterface(
                     allowOffscreen
                 )
             }
-        } catch (e: Exception) {
+        } catch (e: org.json.JSONException) {
             Log.e(TAG, "Failed to parse resize properties", e)
             mraidWebView.fireErrorEvent("Invalid resize properties: ${e.message}", "resize")
         }
@@ -226,7 +229,7 @@ class MraidJsInterface(
                     forceOrientation
                 )
             }
-        } catch (e: Exception) {
+        } catch (e: org.json.JSONException) {
             Log.e(TAG, "Failed to parse orientation properties", e)
             mraidWebView.fireErrorEvent("Invalid orientation properties: ${e.message}", "setOrientationProperties")
         }
@@ -243,7 +246,12 @@ class MraidJsInterface(
         // However, MRAID spec implies getLocation is synchronous.
         // Let's return a cached value or error if not available.
         
-        val locationData = mraidWebView.mraidListener?.onMraidLocation(mraidWebView, 0.0,0.0,0.0f,0L) // This call is a bit off, listener should provide data
+        // The listener call mraidWebView.mraidListener?.onMraidLocation(...)
+        // is more of a trigger to *request* location updates or to inform the listener
+        // about an attempt to access location. It's not designed to synchronously return data here.
+        // val locationData = mraidWebView.mraidListener?.onMraidLocation(
+        //     mraidWebView, 0.0,0.0,0.0f,0L
+        // )
         
         // This part is tricky. MRAID spec for getLocation is synchronous.
         // Real location is async. Typically, SDK would cache last known location.
@@ -260,7 +268,10 @@ class MraidJsInterface(
         }
 
         mraidWebView.fireErrorEvent("Location not available or permission denied.", "getLocation")
-        return "{ \"lat\": -1, \"lon\": -1, \"accuracy\": -1, \"lastfix\": 0, \"ipservice\": false }" // Indicate error/unavailable
+        // Indicate error/unavailable
+        return """
+            { "lat": -1, "lon": -1, "accuracy": -1, "lastfix": 0, "ipservice": false }
+            """.trimIndent()
     }
 
 
@@ -384,13 +395,18 @@ data class MraidLocationData(
     val lastFix: Long, // timestamp in ms
     val ipservice: Boolean = false // true if location was derived from IP
 ) {
+    companion object {
+        private const val MILLISECONDS_TO_SECONDS_FACTOR = 1000L
+        private const val LOCATION_TYPE_GPS = 1
+        private const val LOCATION_TYPE_IP = 2
+    }
     fun toJsonString(): String {
         return JSONObject().apply {
             put("lat", lat)
             put("lon", lon)
-            put("type", if (ipservice) 2 else 1) // 1 for GPS, 2 for IP, 3 for user provided (MRAID uses 'type' for source)
+            put("type", if (ipservice) LOCATION_TYPE_IP else LOCATION_TYPE_GPS) // 1 for GPS, 2 for IP, 3 for user provided (MRAID uses 'type' for source)
             put("accuracy", accuracy.toDouble()) // MRAID spec expects 'accuracy' (double)
-            put("lastfix", lastFix / 1000) // MRAID spec wants seconds
+            put("lastfix", lastFix / MILLISECONDS_TO_SECONDS_FACTOR) // MRAID spec wants seconds
             put("ipservice", ipservice) // Added for completeness, though MRAID spec for getLocation doesn't list it
         }.toString()
     }

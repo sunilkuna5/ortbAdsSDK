@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    package="com.example.adsdk.benchmarks.app"> <!-- Using .app suffix for test app manifest -->
+
+    <!-- It's a test module, so no application tag is strictly needed unless using custom Application class for tests -->
+    <application android:debuggable="true" /> 
+    
+</manifest>

@@ -86,8 +86,14 @@ class NativeAd(
             override fun onAdLoaded(adResponse: AdResponse) {
                 handler.post {
                     if (adResponse.adType != AdType.NATIVE || adResponse.creativePayload.isBlank()) {
-                        Log.e(TAG, "Invalid ad response for Native Ad. Type: ${adResponse.adType}, Payload empty: ${adResponse.creativePayload.isBlank()}")
-                        nativeAdListener?.onAdFailedToLoad(AdError(AdErrorCodes.SERVER_ERROR, "Invalid response for Native Ad"))
+                        Log.e(
+                            TAG,
+                            "Invalid ad response for Native Ad. Type: ${adResponse.adType}, " +
+                                "Payload empty: ${adResponse.creativePayload.isBlank()}"
+                        )
+                        nativeAdListener?.onAdFailedToLoad(
+                            AdError(AdErrorCodes.SERVER_ERROR, "Invalid response for Native Ad")
+                        )
                         return@post
                     }
 
@@ -117,9 +123,12 @@ class NativeAd(
                             prepareJsTracker()
                         }
 
-                    } catch (e: Exception) {
-                        Log.e(TAG, "Error parsing or processing native ad response: ${e.message}", e)
-                        nativeAdListener?.onAdFailedToLoad(AdError(AdErrorCodes.SERVER_ERROR, "Error processing native ad: ${e.message}"))
+                    } catch (e: com.squareup.moshi.JsonDataException) {
+                        Log.e(TAG, "Error parsing native ad JSON response: ${e.message}", e)
+                        nativeAdListener?.onAdFailedToLoad(AdError(AdErrorCodes.SERVER_ERROR, "Invalid native ad data: ${e.message}"))
+                    } catch (e: RuntimeException) { // Catch other unexpected errors during processing
+                        Log.e(TAG, "Unexpected error processing native ad response: ${e.message}", e)
+                        nativeAdListener?.onAdFailedToLoad(AdError(AdErrorCodes.SERVER_ERROR, "Unexpected error processing ad: ${e.message}"))
                     }
                 }
             }
@@ -149,25 +158,40 @@ class NativeAd(
             if (asset.title != null) {
                 val currentTitle = NativeAsset.Title(asset.title.text, asset.id, required)
                 mappedAssets[asset.id] = currentTitle
-                if (asset.id == NativeAssetId.TITLE_ID || titleAsset == null) titleAsset = currentTitle // Prioritize official ID or first found
+                // Prioritize official ID or first found
+                if (asset.id == NativeAssetId.TITLE_ID || titleAsset == null) {
+                    titleAsset = currentTitle
+                }
             } else if (asset.img != null) {
                 val imageType = OpenRTBNativeImageAssetType.fromInt(asset.img.type ?: 0)
                 when (imageType) {
                     OpenRTBNativeImageAssetType.MAIN -> {
-                        val currentImage = NativeAsset.Image(asset.img.url, asset.img.w, asset.img.h, asset.id, required)
+                        val currentImage = NativeAsset.Image(
+                            asset.img.url, asset.img.w, asset.img.h, asset.id, required
+                        )
                         mappedAssets[asset.id] = currentImage
-                        if (asset.id == NativeAssetId.MAIN_IMAGE_ID || mainImageAsset == null) mainImageAsset = currentImage
+                        if (asset.id == NativeAssetId.MAIN_IMAGE_ID || mainImageAsset == null) {
+                            mainImageAsset = currentImage
+                        }
                     }
                     OpenRTBNativeImageAssetType.ICON -> {
-                         val currentIcon = NativeAsset.Icon(asset.img.url, asset.img.w, asset.img.h, asset.id, required)
+                         val currentIcon = NativeAsset.Icon(
+                             asset.img.url, asset.img.w, asset.img.h, asset.id, required
+                         )
                         mappedAssets[asset.id] = currentIcon
-                        if (asset.id == NativeAssetId.ICON_ID || iconImageAsset == null) iconImageAsset = currentIcon
+                        if (asset.id == NativeAssetId.ICON_ID || iconImageAsset == null) {
+                            iconImageAsset = currentIcon
+                        }
                     }
                     else -> { // Generic image if type not specified or unknown
-                        val currentImage = NativeAsset.Image(asset.img.url, asset.img.w, asset.img.h, asset.id, required)
+                        val currentImage = NativeAsset.Image(
+                            asset.img.url, asset.img.w, asset.img.h, asset.id, required
+                        )
                         mappedAssets[asset.id] = currentImage
-                        // Could assign to mainImage if it's still null and this is the first image encountered
-                        if (mainImageAsset == null && imageType == null) mainImageAsset = currentImage
+                        // Could assign to mainImage if it's still null
+                        if (mainImageAsset == null && imageType == null) {
+                            mainImageAsset = currentImage
+                        }
                     }
                 }
             } else if (asset.data != null) {
@@ -176,10 +200,22 @@ class NativeAd(
                      val currentData = NativeAsset.Data(asset.data.value, dataType, asset.id, required)
                      mappedAssets[asset.id] = currentData
                     when (dataType) {
-                        OpenRTBNativeDataAssetType.DESC -> if (asset.id == NativeAssetId.DESCRIPTION_ID || descriptionAsset == null) descriptionAsset = currentData
-                        OpenRTBNativeDataAssetType.CTA -> if (asset.id == NativeAssetId.CTA_TEXT_ID || ctaAsset == null) ctaAsset = currentData
-                        OpenRTBNativeDataAssetType.SPONSORED -> if (asset.id == NativeAssetId.SPONSORED_BY_ID || sponsoredByAsset == null) sponsoredByAsset = currentData
-                        OpenRTBNativeDataAssetType.RATING -> if (asset.id == NativeAssetId.RATING_ID || ratingAsset == null) ratingAsset = currentData
+                        OpenRTBNativeDataAssetType.DESC ->
+                            if (asset.id == NativeAssetId.DESCRIPTION_ID || descriptionAsset == null) {
+                                descriptionAsset = currentData
+                            }
+                        OpenRTBNativeDataAssetType.CTA ->
+                            if (asset.id == NativeAssetId.CTA_TEXT_ID || ctaAsset == null) {
+                                ctaAsset = currentData
+                            }
+                        OpenRTBNativeDataAssetType.SPONSORED ->
+                            if (asset.id == NativeAssetId.SPONSORED_BY_ID || sponsoredByAsset == null) {
+                                sponsoredByAsset = currentData
+                            }
+                        OpenRTBNativeDataAssetType.RATING ->
+                            if (asset.id == NativeAssetId.RATING_ID || ratingAsset == null) {
+                                ratingAsset = currentData
+                            }
                         else -> { /* Store in allAssets, no specific field */ }
                     }
                 }
@@ -318,8 +354,10 @@ class NativeAd(
                 val intent = Intent(Intent.ACTION_VIEW, Uri.parse(landingUrl))
                 intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                 context.startActivity(intent)
-            } catch (e: Exception) {
-                Log.e(TAG, "Failed to open landing URL: $landingUrl", e)
+            } catch (e: android.content.ActivityNotFoundException) {
+                Log.e(TAG, "Failed to open landing URL (ActivityNotFound): $landingUrl", e)
+            } catch (e: SecurityException) {
+                Log.e(TAG, "Failed to open landing URL (SecurityException): $landingUrl", e)
             }
         }
     }

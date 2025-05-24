@@ -30,11 +30,16 @@ class BannerAdView @JvmOverloads constructor(
     private var mraidWebView: MraidWebView? = null
     private lateinit var adLoader: AdLoader
 
-    private var refreshRateSeconds: Int = 30 // Default 30 seconds
+    private var refreshRateSeconds: Int = DEFAULT_REFRESH_RATE_SECONDS
     private val refreshHandler = Handler(Looper.getMainLooper())
     private var refreshRunnable: Runnable? = null
 
     private val TAG = "BannerAdView"
+
+    companion object {
+        private const val DEFAULT_REFRESH_RATE_SECONDS = 30
+        private const val MILLISECONDS_IN_SECOND = 1000L
+    }
 
     private var isLoaded = false // To track if an ad is currently loaded
 
@@ -51,12 +56,14 @@ class BannerAdView @JvmOverloads constructor(
                 try {
                     adSize = AdSize.fromString(adSizeString)
                 } catch (e: IllegalArgumentException) {
-                    AdSdk.log(LogLevel.WARNING, TAG, "Invalid adSize specified in XML: $adSizeString. Defaulting to BANNER. ${e.message}")
+                    val logMessage = "Invalid adSize specified in XML: $adSizeString. " +
+                        "Defaulting to BANNER. ${e.message}"
+                    AdSdk.log(LogLevel.WARNING, TAG, logMessage)
                     // Default to BANNER if string is invalid
                     adSize = AdSize.BANNER 
                 }
             }
-            refreshRateSeconds = typedArray.getInt(R.styleable.BannerAdView_refreshRate, 30)
+            refreshRateSeconds = typedArray.getInt(R.styleable.BannerAdView_refreshRate, DEFAULT_REFRESH_RATE_SECONDS)
             typedArray.recycle()
         }
     }
@@ -119,8 +126,15 @@ class BannerAdView @JvmOverloads constructor(
         )
 
         // Make sure the BannerAdView itself has a size, otherwise ad might not be visible
-        if (layoutParams.width == ViewGroup.LayoutParams.WRAP_CONTENT || layoutParams.height == ViewGroup.LayoutParams.WRAP_CONTENT) {
-            Log.w(TAG, "BannerAdView layout_width or layout_height is wrap_content. This might result in an ad not being displayed. Consider using a fixed size or match_parent with a fixed parent size.")
+        if (layoutParams.width == ViewGroup.LayoutParams.WRAP_CONTENT ||
+            layoutParams.height == ViewGroup.LayoutParams.WRAP_CONTENT
+        ) {
+            Log.w(
+                TAG,
+                "BannerAdView layout_width or layout_height is wrap_content. " +
+                    "This might result in an ad not being displayed. " +
+                    "Consider using a fixed size or match_parent with a fixed parent size."
+            )
         }
         // If the BannerAdView's own size is 0, MRAID viewability might be an issue.
         // It's best if the AdSize also dictates the BannerAdView's measured size.
@@ -197,7 +211,7 @@ class BannerAdView @JvmOverloads constructor(
                     // If skipped, the next refresh will be scheduled when an ad successfully loads again.
                 }
             }.also {
-                refreshHandler.postDelayed(it, refreshRateSeconds * 1000L)
+                refreshHandler.postDelayed(it, refreshRateSeconds * MILLISECONDS_IN_SECOND)
             }
         }
     }
@@ -283,9 +297,10 @@ class BannerAdView @JvmOverloads constructor(
                     val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
                     intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                     banner.context.startActivity(intent)
-                } catch (e: Exception) {
-                    Log.e(TAG, "Failed to open URL: $url", e)
-                    // Optionally notify listener about the failure to open
+                } catch (e: android.content.ActivityNotFoundException) {
+                    Log.e(TAG, "Failed to open URL (ActivityNotFound): $url", e)
+                } catch (e: SecurityException) {
+                    Log.e(TAG, "Failed to open URL (SecurityException): $url", e)
                 }
             }
         }
@@ -353,9 +368,12 @@ class BannerAdView @JvmOverloads constructor(
                     intent.setDataAndType(Uri.parse(url), "video/*") // Hint it's a video
                     intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                     banner.context.startActivity(intent)
-                } catch (e: Exception) {
-                    Log.e(TAG, "Failed to play video: $url", e)
-                    mraidWebView.fireErrorEvent("Failed to play video: ${e.message}", "playVideo")
+                } catch (e: android.content.ActivityNotFoundException) {
+                    Log.e(TAG, "Failed to play video (ActivityNotFound): $url", e)
+                    mraidWebView.fireErrorEvent("Failed to play video (ActivityNotFound): ${e.message}", "playVideo")
+                } catch (e: SecurityException) {
+                    Log.e(TAG, "Failed to play video (SecurityException): $url", e)
+                    mraidWebView.fireErrorEvent("Failed to play video (SecurityException): ${e.message}", "playVideo")
                 }
             }
         }

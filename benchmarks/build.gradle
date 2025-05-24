@@ -1,0 +1,50 @@
+// Using com.android.test plugin for benchmark modules
+plugins {
+    id 'com.android.test'
+    id 'org.jetbrains.kotlin.android'
+}
+
+android {
+    namespace "com.example.adsdk.benchmarks" // Added namespace
+    compileSdk 33 // Align with AdSDK's compileSdk
+
+    defaultConfig {
+        minSdk 21 // Align with AdSDK's minSdk
+        targetSdk 33 // Align with AdSDK's targetSdk
+
+        testInstrumentationRunner "androidx.benchmark.junit4.AndroidBenchmarkRunner"
+    }
+
+    // Benchmark build type
+    buildTypes {
+        benchmark {
+            // Must be signed with the same signature as the app being benchmarked (AdSDKSample)
+            // For simplicity, using debug signing config here, assuming AdSDKSample uses it.
+            // In a real scenario, you might have a common release signing config.
+            signingConfig signingConfigs.debug
+            matchingFallbacks = ["release"]
+            debuggable = false // Important for performance accuracy
+            // Other optimizations for benchmarks if needed
+        }
+    }
+    
+    // Target the AdSDKSample application for benchmarking
+    // This assumes AdSDKSample is the app consuming AdSDK
+    targetProjectPath = ":AdSDKSample" 
+    // experimentalProperties["android.experimental.self-instrumenting"] = true // No longer needed for macrobenchmark usually
+}
+
+dependencies {
+    implementation 'org.jetbrains.kotlin:kotlin-stdlib-jdk8:2.0.0' // Align with project Kotlin version
+
+    // Macrobenchmark dependencies
+    implementation 'androidx.benchmark:benchmark-macro-junit4:1.2.4' // Using a recent stable version
+    implementation 'androidx.test.ext:junit:1.1.5' // For JUnit test rules and runners
+    implementation 'androidx.test.uiautomator:uiautomator:2.3.0' // For UI interaction
+
+    // Optional: Espresso for UI interactions if needed within benchmarks, but prefer UIAutomator for macro.
+    //androidTestImplementation 'androidx.test.espresso:espresso-core:3.5.1'
+
+    // Dependency on the AdSDK module to benchmark its components
+    implementation project(":AdSDK")
+}

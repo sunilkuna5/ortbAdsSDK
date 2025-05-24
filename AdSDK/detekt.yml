@@ -1,0 +1,105 @@
+# Default Detekt configuration
+# See https://detekt.dev/docs/introduction/configurations for more options
+
+# Example: Activate a ruleset and change a rule's behavior
+# potential-bugs:
+#   active: true
+#   ComplexMethod:
+#     threshold: 20 # default is 15
+
+# Formatting rules (using ktlint defaults)
+# formatting:
+#   active: true
+#   # Optional: point to a custom .editorconfig file
+#   # editorConfigPath: path/to/.editorconfig
+
+# Disable some default rules if needed
+# style:
+#   MaxLineLength:
+#     active: false
+#   WildcardImport:
+#     active: false
+#   MagicNumber:
+#     active: false
+# naming:
+#   FunctionNaming:
+#     active: false
+
+# Complexity rules
+complexity:
+  TooManyFunctions:
+    active: true # Default is true, but can be explicitly set
+    thresholdInFiles: 20 # Default is 10
+    thresholdInClasses: 20 # Default is 10
+    thresholdInInterfaces: 20 # Default is 10
+    thresholdInObjects: 20 # Default is 10
+    thresholdInEnums: 20 # Default is 10
+  ComplexMethod:
+    threshold: 25 # Default is 15
+  LargeClass:
+    threshold: 200 # Default is 150
+  LongParameterList:
+    functionThreshold: 8 # Default is 6
+    constructorThreshold: 10 # Default is 7
+  LongMethod:
+    threshold: 80 # Default is 60
+
+# Maintainability rules
+# Consider enabling or adjusting rules like:
+# build:
+#   ForbiddenImport:
+#     imports:
+#       - 'android.util.Log' # Example: encourage a custom logger wrapper
+
+# Performance rules
+# Consider rules like:
+# performance:
+#   ArrayPrimitive:
+#     active: true
+
+# Potential Bugs
+# potential-bugs:
+#   UnsafeCallOnNullableType:
+#     active: true # Default is true, but ensures it's checked
+#   UnconditionalJumpStatementInLoop:
+#     active: true # Default is true
+#   ImplicitDefaultLocale:
+#     active: true # Default is true
+
+# Style Guide
+# style:
+#   MagicNumber:
+#     ignoreNumbers: '-1,0,1,2,100,1000' # Allow common magic numbers
+#   ReturnCount:
+#     max: 4 # Default is 2, can be adjusted based on team preference
+#   ThrowsCount:
+#     max: 3 # Default is 2
+#   NewLineAtEndOfFile:
+#     active: true # Default is true
+#   ProtectedMemberInFinalClass:
+#     active: true # Default is true
+# comments:
+#   CommentOverPrivateFunction:
+#     active: false
+#   CommentOverPrivateProperty:
+#     active: false
+#   UndocumentedPublicClass:
+#     active: false
+#   UndocumentedPublicFunction:
+#     active: false
+
+# Naming Conventions
+# naming:
+#   TopLevelPropertyNaming:
+#     constantPattern: '[A-Z][A-Za-z0-9_]*' # Allows SCREAMING_SNAKE_CASE or UpperCamelCase for constants
+#   MatchingDeclarationName:
+#     active: false # Sometimes too restrictive for specific test naming conventions
+
+# Ensure to review Detekt's default configuration and adjust as per your project's needs.
+# This file provides a starting point.
+# You can generate a baseline file to ignore existing issues:
+# ./gradlew :AdSDK:detektBaseline
+# And then reference it in your build.gradle:
+# detekt {
+#   baseline = file("detekt-baseline.xml")
+# }

@@ -15,13 +15,17 @@ object AdErrorCodes {
     
     // Ad Content & Display Errors
     const val CREATIVE_ERROR = 1008      // Error within the ad creative itself (e.g., MRAID error)
-    const val AD_NOT_READY = 1007        // Ad is not loaded or ready to be shown (e.g. calling show() before loadAd() completes)
-    const val UNSUPPORTED_AD_TYPE = 1011 // Ad type returned is not supported by the requested ad unit (e.g. Native for BannerAdView)
+    /** Ad is not loaded or ready to be shown (e.g. calling show() before loadAd() completes) */
+    const val AD_NOT_READY = 1007
+    /** Ad type returned is not supported by the requested ad unit (e.g. Native for BannerAdView) */
+    const val UNSUPPORTED_AD_TYPE = 1011
     const val RENDER_ERROR = 1012        // Error occurred while trying to render the ad
 
     // Permission & Device Feature Errors
-    const val PERMISSION_DENIED = 1013   // Required permission not granted (e.g. for calendar, store picture)
-    const val FEATURE_NOT_SUPPORTED = 1014 // Device does not support a feature required by the ad (e.g. specific MRAID feature)
+    /** Required permission not granted (e.g. for calendar, store picture) */
+    const val PERMISSION_DENIED = 1013
+    /** Device does not support a feature required by the ad (e.g. specific MRAID feature) */
+    const val FEATURE_NOT_SUPPORTED = 1014
 
     // Specific MRAID related errors (can be sub-codes of CREATIVE_ERROR)
     const val MRAID_INVALID_STATE_TRANSITION = 2001 // e.g. expand() called when not in default state

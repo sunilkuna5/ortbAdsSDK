@@ -6,15 +6,20 @@ import android.content.pm.PackageManager
 import android.os.Build
 import android.provider.Settings
 import android.util.DisplayMetrics
-import android.util.Log
 import android.view.WindowManager
 import com.squareup.moshi.Moshi
 import com.squareup.moshi.kotlin.reflect.KotlinJsonAdapterFactory
-import okhttp3.*
+import okhttp3.Call
+import okhttp3.Callback
 import okhttp3.MediaType.Companion.toMediaType
+import okhttp3.OkHttpClient
+import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
+import okhttp3.Response
 import java.io.IOException
-import java.util.*
+import java.net.HttpURLConnection
+import java.util.Locale
+import java.util.UUID
 import androidx.test.espresso.idling.CountingIdlingResource // Import for IdlingResource
 
 class AdLoader {
@@ -35,7 +40,7 @@ class AdLoader {
 
     private val TAG = "AdLoader"
     // Replace with your actual ad server endpoint that supports OpenRTB
-    private val AD_SERVER_URL = "https://mock-ad-server.vercel.app/api/openrtb"
+    private val adServerUrl = "https://mock-ad-server.vercel.app/api/openrtb"
 
     interface AdLoadListener {
         fun onAdLoaded(adResponse: AdResponse)
@@ -60,16 +65,21 @@ class AdLoader {
         try {
             jsonRequest = openRTBRequestAdapter.toJson(openRTBRequest)
             Log.d(TAG, "OpenRTB Request: $jsonRequest")
-        } catch (e: Exception) {
-            Log.e(TAG, "Failed to serialize OpenRTBRequest: ${e.message}", e)
-            listener.onError(AdError(AdErrorCodes.INVALID_REQUEST, "Failed to build ad request"))
+        } catch (e: com.squareup.moshi.JsonDataException) {
+            Log.e(TAG, "Failed to serialize OpenRTBRequest to JSON: ${e.message}", e)
+            listener.onError(AdError(AdErrorCodes.INVALID_REQUEST, "Failed to build ad request JSON: ${e.message}"))
+            return
+        } catch (e: RuntimeException) { // Catch other unexpected errors during serialization
+            Log.e(TAG, "Unexpected error serializing OpenRTBRequest: ${e.message}", e)
+            val errorMsg = "Unexpected error building ad request: ${e.message}"
+            listener.onError(AdError(AdErrorCodes.INVALID_REQUEST, errorMsg))
             return
         }
 
         val requestBody = jsonRequest.toRequestBody("application/json; charset=utf-8".toMediaType())
 
         val request = Request.Builder()
-            .url(AD_SERVER_URL)
+            .url(adServerUrl)
             .post(requestBody)
             .addHeader("x-openrtb-version", "2.5") // Standard OpenRTB header
             .build()
@@ -89,18 +99,18 @@ class AdLoader {
 
             override fun onResponse(call: Call, response: Response) {
                 try {
-                    if (response.code == 204) { // HTTP 204 No Content means No Bid
-                        Log.i(TAG, "Ad server returned HTTP 204: No Bid")
+                    if (response.code == HttpURLConnection.HTTP_NO_CONTENT) { // HTTP 204 No Content means No Bid
+                        Log.i(TAG, "Ad server returned HTTP $HttpURLConnection.HTTP_NO_CONTENT: No Bid")
                         listener.onError(AdError(AdErrorCodes.NO_FILL, "No ad available (No Bid)"))
                         safeDecrement() // Decrement before early return
                         return
                     }
 
                     if (!response.isSuccessful) {
-                        Log.e(TAG, "Ad server returned error: ${response.code} ${response.message}")
-                        val responseBodyString = response.body?.string() ?: "Empty error body"
-                        Log.e(TAG, "Error body: $responseBodyString")
-                        listener.onError(AdError(response.code, "Server error: ${response.message} - $responseBodyString"))
+                        val errorBody = response.body?.string() ?: "Empty error body"
+                        val errorMessage = "Server error: ${response.code} ${response.message} - $errorBody"
+                        Log.e(TAG, errorMessage)
+                        listener.onError(AdError(response.code, errorMessage))
                         safeDecrement() // Decrement before early return
                         return
                     }
@@ -158,8 +168,8 @@ class AdLoader {
                             adType = AdType.NATIVE // If parsable, it's native
                             // creativePayload remains firstBid.adMarkup (the stringified JSON)
                              Log.d(TAG, "Native Ad Markup from adm: $creativePayload")
-                        } catch (e: Exception) {
-                            Log.w(TAG, "Requested NATIVE, but adm is not valid NativeAdMarkup JSON. Falling back to HTML interpretation or error.")
+                        } catch (e: com.squareup.moshi.JsonDataException) {
+                            Log.w(TAG, "Requested NATIVE, but adm is not valid NativeAdMarkup JSON: ${e.message}", e)
                             // Depending on strictness, either error out or try to render as HTML if possible
                             // For now, let's assume if NATIVE was requested, it must be valid native markup
                             listener.onError(AdError(AdErrorCodes.SERVER_ERROR, "Invalid Native Ad Markup received"))
@@ -178,9 +188,15 @@ class AdLoader {
                     )
                     listener.onAdLoaded(adResponse)
 
-                } catch (e: Exception) {
-                    Log.e(TAG, "Failed to parse or process OpenRTB response: ${e.message}", e)
-                    listener.onError(AdError(AdErrorCodes.SERVER_ERROR, "Error processing ad response: ${e.message}"))
+                } catch (e: com.squareup.moshi.JsonDataException) {
+                    Log.e(TAG, "Failed to parse JSON in OpenRTB response: ${e.message}", e)
+                    listener.onError(AdError(AdErrorCodes.SERVER_ERROR, "Invalid ad response data: ${e.message}"))
+                } catch (e: IOException) {
+                    Log.e(TAG, "IOException processing OpenRTB response body: ${e.message}", e)
+                    listener.onError(AdError(AdErrorCodes.NETWORK_ERROR, "Error reading ad response data: ${e.message}"))
+                } catch (e: RuntimeException) {
+                    Log.e(TAG, "Unexpected error processing OpenRTB response: ${e.message}", e)
+                    listener.onError(AdError(AdErrorCodes.SERVER_ERROR, "Unexpected error processing ad response: ${e.message}"))
                 } finally {
                     safeDecrement()
                 }
@@ -201,8 +217,10 @@ class AdLoader {
             banner = if (adRequest.format == AdFormat.BANNER || adRequest.format == AdFormat.INTERSTITIAL) {
                 // For INTERSTITIAL, typically full screen. For BANNER, specific sizes.
                 // Use exact pixel dimensions from AdRequest if provided, otherwise use defaults or derive.
-                val bannerWidthPx = adRequest.widthPx ?: if (adRequest.format == AdFormat.INTERSTITIAL) device.w ?: 320 else 320
-                val bannerHeightPx = adRequest.heightPx ?: if (adRequest.format == AdFormat.INTERSTITIAL) device.h ?: 480 else 50
+                val bannerWidthPx = adRequest.widthPx
+                    ?: if (adRequest.format == AdFormat.INTERSTITIAL) device.w ?: 320 else 320
+                val bannerHeightPx = adRequest.heightPx
+                    ?: if (adRequest.format == AdFormat.INTERSTITIAL) device.h ?: 480 else 50
                 
                 // Create Format object list if specific w/h are provided
                 val formatList = if (adRequest.widthPx != null && adRequest.heightPx != null) {
@@ -249,8 +267,20 @@ class AdLoader {
             // plcmttype = NativePlacementType.IN_FEED, // Example placement
             assets = listOf(
                 NativeAsset(id = 1, required = 1, title = NativeTitle(len = 100)),
-                NativeAsset(id = 2, required = 1, img = NativeImage(type = NativeImageAssetType.MAIN, wmin = 200, hmin = 200, mimes = listOf("image/jpeg", "image/png"))),
-                NativeAsset(id = 3, required = 0, img = NativeImage(type = NativeImageAssetType.ICON, wmin = 50, hmin = 50, mimes = listOf("image/jpeg", "image/png"))),
+                NativeAsset(
+                    id = 2, required = 1,
+                    img = NativeImage(
+                        type = NativeImageAssetType.MAIN, wmin = 200, hmin = 200,
+                        mimes = listOf("image/jpeg", "image/png")
+                    )
+                ),
+                NativeAsset(
+                    id = 3, required = 0,
+                    img = NativeImage(
+                        type = NativeImageAssetType.ICON, wmin = 50, hmin = 50,
+                        mimes = listOf("image/jpeg", "image/png")
+                    )
+                ),
                 NativeAsset(id = 4, required = 1, data = NativeData(type = NativeDataAssetType.DESC, len = 150)),
                 NativeAsset(id = 5, required = 0, data = NativeData(type = NativeDataAssetType.CTA, len = 20))
             )
@@ -259,7 +289,8 @@ class AdLoader {
         return Native(
             request = nativeMarkupRequestString,
             ver = "1.2",
-            api = listOf(ApiFrameworks.MRAID_2, ApiFrameworks.MRAID_3) // MRAID for rich interactions within native parts if needed
+            // MRAID for rich interactions within native parts if needed
+            api = listOf(ApiFrameworks.MRAID_2, ApiFrameworks.MRAID_3)
         )
     }
 
@@ -272,6 +303,7 @@ class AdLoader {
         val appVersion = try {
             packageManager.getPackageInfo(packageName, 0).versionName
         } catch (e: PackageManager.NameNotFoundException) {
+            Log.w(TAG, "Could not get package version name: ${e.message}")
             null
         }
 
@@ -296,7 +328,11 @@ class AdLoader {
             // val adInfo = AdvertisingIdClient.getAdvertisingIdInfo(context)
             // object { val id = adInfo.id; val isLimitAdTrackingEnabled = adInfo.isLimitAdTrackingEnabled }
             object { val id = "test-ifa-uuid"; val isLimitAdTrackingEnabled = false } // Placeholder
-        } catch (e: Exception) {
+        } catch (e: ClassNotFoundException) {
+            Log.w(TAG, "Google Play Services Ads library not found for AdvertisingIdClient.", e)
+            null
+        } catch (e: RuntimeException) { // Catch any other exception during reflection/call
+            Log.e(TAG, "Error accessing AdvertisingIdClient: ${e.message}", e)
             null
         }
 

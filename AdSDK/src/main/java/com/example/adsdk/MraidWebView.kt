@@ -46,7 +46,7 @@ class MraidWebView @JvmOverloads constructor(
 
     // For position and size calculations
     private val locationOnScreen = IntArray(2)
-    private val windowVisibleDisplayFrame = Rect()
+    // private val windowVisibleDisplayFrame = Rect() // This was unused
 
     private var isMraidJsInjected = false
     private var isPageLoaded = false
@@ -252,16 +252,22 @@ class MraidWebView @JvmOverloads constructor(
                     intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                     context.startActivity(intent)
                     return true
-                } catch (e: Exception) {
-                    Log.e(TAG, "Could not handle URL: $url", e)
-                    return false // Let WebView try to handle it or fail
+                } catch (e: android.content.ActivityNotFoundException) {
+                    Log.e(TAG, "Could not handle URL (ActivityNotFound): $url", e)
+                    return false 
+                } catch (e: SecurityException) {
+                    Log.e(TAG, "Could not handle URL (SecurityException): $url", e)
+                    return false
                 }
             }
         }
 
         this.webChromeClient = object : WebChromeClient() {
             override fun onConsoleMessage(consoleMessage: ConsoleMessage?): Boolean {
-                Log.d("MraidCreativeConsole", "${consoleMessage?.message()} -- From line ${consoleMessage?.lineNumber()} of ${consoleMessage?.sourceId()}")
+                consoleMessage?.let {
+                    val message = "${it.message()} -- From line ${it.lineNumber()} of ${it.sourceId()}"
+                    Log.d("MraidCreativeConsole", message)
+                }
                 return true
             }
 
@@ -373,11 +379,11 @@ class MraidWebView @JvmOverloads constructor(
         Log.d(TAG, "Firing Audible Change Event: $isAudible, Reason: $reason")
         // MRAID 3.0 spec: mraid.fireAudioVolumeChangeEvent({ currentVolumePercentage: number, muted: boolean, reasons: [string] });
         // Simplified for now based on mraid.js fireAudibleChangeEvent
-        val volumePercent = if (isAudible) 100 else 0
+        val volumePercent = if (isAudible) MAX_VOLUME_PERCENTAGE else 0
         val muted = !isAudible
         val reasonsArray = if (reason.isNotEmpty()) "['${escapeJsString(reason)}']" else "[]"
-        // TODO: This event is actually audioVolumeChange in MRAID 3.0
-        // safeEvaluateJavascript("mraid.fireAudibleChangeEvent($isAudible);") // Old mraid.js event
+        // Note: MRAID 3.0 uses 'audioVolumeChange'. The event below correctly fires that.
+        // safeEvaluateJavascript("mraid.fireAudibleChangeEvent($isAudible);") // Old mraid.js event, kept for reference
         safeEvaluateJavascript("mraid.fireEvent('audioVolumeChange', { currentVolumePercentage: $volumePercent, muted: $muted, reasons: $reasonsArray });")
     }
 

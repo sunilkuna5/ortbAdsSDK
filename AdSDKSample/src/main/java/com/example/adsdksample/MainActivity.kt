@@ -9,9 +9,14 @@ import android.widget.LinearLayout
 import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
-import com.example.adsdk.*
+import com.example.adsdk.AdError
+import com.example.adsdk.BannerAdListener
+import com.example.adsdk.BannerAdView
+import com.example.adsdk.InterstitialAd
+import com.example.adsdk.InterstitialAdListener
+import com.example.adsdk.NativeAd
+import com.example.adsdk.NativeAdListener
 import com.example.adsdksample.databinding.ActivityMainBinding // Using ViewBinding
-
 import androidx.test.espresso.idling.CountingIdlingResource
 
 // IdlingResource for AdLoader (via AdSDK) is handled by AdLoader itself.

@@ -12,7 +12,15 @@ import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Nested
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.extension.ExtendWith
-import org.mockito.kotlin.*
+import org.mockito.kotlin.any
+import org.mockito.kotlin.argumentCaptor
+import org.mockito.kotlin.check
+import org.mockito.kotlin.mock
+import org.mockito.kotlin.spy
+import org.mockito.kotlin.times
+import org.mockito.kotlin.verify
+import org.mockito.kotlin.verifyNoInteractions
+import org.mockito.kotlin.whenever
 import org.robolectric.Robolectric
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.Shadows.shadowOf
@@ -29,7 +37,7 @@ class BannerAdViewTest {
     private lateinit var bannerAdView: BannerAdView
     private lateinit var mockAdLoader: AdLoader
     private lateinit var mockListener: BannerAdListener
-    private lateinit var mockMraidWebView: MraidWebView // To verify interactions if needed
+    // private lateinit var mockMraidWebView: MraidWebView // This was unused
 
     @BeforeEach
     fun setUp() {

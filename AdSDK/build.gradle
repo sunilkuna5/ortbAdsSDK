@@ -1,7 +1,9 @@
 plugins {
     id 'com.android.library'
     id 'kotlin-android'
-    id 'org.jetbrains.dokka' version '1.9.10' 
+    id 'org.jetbrains.dokka' version '1.9.10'
+    id "io.gitlab.arturbosch.detekt" version "1.23.6"
+    id 'jacoco'
 }
 
 
@@ -31,6 +33,18 @@ android {
     namespace 'com.example.adsdk'
 }
 
+detekt {
+    toolVersion = "1.23.6"
+    source.setFrom(files("src/main/java", "src/test/java"))
+    config.setFrom(files("detekt.yml")) // Optional: specify a config file
+    buildUponDefaultConfig = true // Uses default Detekt config as a baseline
+    reports {
+        html.required.set(true) // Example: enable HTML report
+        xml.required.set(true) // Example: enable XML report
+        txt.required.set(true) // Example: enable TXT report
+    }
+}
+
 dependencies {
     implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk8:2.0.0"
     implementation 'androidx.appcompat:appcompat:1.4.1'
@@ -49,3 +63,76 @@ dependencies {
     androidTestImplementation 'androidx.test.ext:junit:1.1.3'
     androidTestImplementation 'androidx.test.espresso:espresso-core:3.4.0'
 }
+
+jacoco {
+    toolVersion = "0.8.11"
+}
+
+tasks.register('codeCoverageReport', JacocoReport) {
+    group = "Reporting"
+    description = "Generate Jacoco code coverage report for the debug build."
+
+    // Ensure tests run before this task
+    dependsOn tasks.named('testDebugUnitTest')
+    // dependsOn tasks.named('connectedDebugAndroidTest') // This will likely fail
+
+    reports {
+        xml.required.set(true)
+        csv.required.set(true)
+        html.required.set(true)
+        html.outputLocation.set(layout.buildDirectory.dir("reports/jacoco/html"))
+    }
+
+    def mainSrc = "${project.projectDir}/src/main/java"
+    sourceDirectories.setFrom(files([mainSrc]))
+
+    // Class directories. These might need adjustment based on AGP version.
+    // Common paths for Kotlin and Java classes after compilation.
+    def kotlinClasses = fileTree(dir: "${buildDir}/tmp/kotlin-classes/debug", excludes: [
+        '**/R.class',
+        '**/R$*.class',
+        '**/BuildConfig.*',
+        '**/Manifest*.*',
+        '**/*Test*.*', // Exclude test classes themselves
+        '**/models/**', // Assuming models are data classes, often excluded
+        '**/view/**',   // Assuming views are UI, often excluded or tested via UI tests
+        '**/*Args*.*',  // Navigation Args
+        '**/*Directions*.*' // Navigation Directions
+    ])
+    def javaClasses = fileTree(dir: "${buildDir}/intermediates/javac/debug/classes", excludes: [
+        '**/R.class',
+        '**/R$*.class',
+        '**/BuildConfig.*',
+        '**/Manifest*.*',
+        '**/*Test*.*'
+    ])
+    // A more general path if the above are too specific or miss some classes
+    def allDebugClasses = fileTree(dir: "${buildDir}/intermediates/classes/debug", excludes: [
+         '**/R.class',
+         '**/R$*.class',
+         '**/BuildConfig.*',
+         '**/Manifest*.*',
+         '**/*Test*.*'
+    ])
+
+
+    classDirectories.setFrom(files([kotlinClasses, javaClasses, allDebugClasses]))
+
+
+    // Execution data from unit tests and instrumentation tests
+    executionData.setFrom(files([
+        "${buildDir}/jacoco/testDebugUnitTest.exec",
+        // Path for instrumentation test coverage data. This might not exist if connected tests fail.
+        // Using a pattern to find .ec files in case of multiple connected devices/emulators.
+        fileTree(dir: "${buildDir}/outputs/code_coverage/debugAndroidTest/connected/", includes: ["**/*.ec"])
+    ]))
+    
+    // Optional: Configure what to do if no execution data is found.
+    // By default, the task might fail or produce an empty report.
+    // For this setup, we expect unit test data at least.
+}
+
+// Ensure Android Lint task runs after Detekt (example of task ordering if needed elsewhere)
+// tasks.named("lintDebug").configure {
+//     mustRunAfter(tasks.named("detekt"))
+// }

@@ -74,14 +74,20 @@ class InterstitialAd(
                 handler.post {
                     if (adResponse.creativePayload.isBlank()) {
                         Log.e(TAG, "Ad server returned empty creative payload for interstitial.")
-                        interstitialAdListener?.onAdFailedToLoad(AdError(AdErrorCodes.NO_FILL, "Empty creative payload"))
+                        interstitialAdListener?.onAdFailedToLoad(
+                            AdError(AdErrorCodes.NO_FILL, "Empty creative payload")
+                        )
                         return@post
                     }
                     // For interstitials, we expect HTML or a format MRAID can handle.
                     // AdType.NATIVE is not directly handled by InterstitialAd in this basic SDK.
                      if (adResponse.adType == AdType.NATIVE) {
                          Log.e(TAG, "Received Native ad type for InterstitialAd. This is not supported here.")
-                        interstitialAdListener?.onAdFailedToLoad(AdError(AdErrorCodes.SERVER_ERROR, "Unsupported ad type: NATIVE for InterstitialAd"))
+                        val error = AdError(
+                            AdErrorCodes.SERVER_ERROR,
+                            "Unsupported ad type: NATIVE for InterstitialAd"
+                        )
+                        interstitialAdListener?.onAdFailedToLoad(error)
                         return@post
                     }
 
@@ -162,9 +168,12 @@ class InterstitialAd(
             // Impression is typically counted when the ad is shown for interstitial
             interstitialAdListener?.onAdImpression() 
             interstitialAdListener?.onAdShown() // Keep distinct onAdShown if it has other specific meaning
-        } catch (e: Exception) {
-            Log.e(TAG, "Error showing interstitial dialog: ${e.message}", e)
-            interstitialAdListener?.onAdFailedToLoad(AdError(AdErrorCodes.INTERNAL_ERROR, "Failed to show dialog: ${e.message}"))
+        } catch (e: android.view.WindowManager.BadTokenException) {
+            Log.e(TAG, "Error showing interstitial dialog (BadTokenException): ${e.message}", e)
+            interstitialAdListener?.onAdFailedToLoad(AdError(AdErrorCodes.INTERNAL_ERROR, "Failed to show dialog (BadTokenException): ${e.message}"))
+        } catch (e: RuntimeException) {
+            Log.e(TAG, "Error showing interstitial dialog (RuntimeException): ${e.message}", e)
+            interstitialAdListener?.onAdFailedToLoad(AdError(AdErrorCodes.INTERNAL_ERROR, "Failed to show dialog (RuntimeException): ${e.message}"))
             cleanupAfterShow() // Clean up resources if show failed
             return
         }
@@ -217,8 +226,10 @@ class InterstitialAd(
                     val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
                     intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK) // Necessary if context is not activity
                     ad.context.startActivity(intent)
-                } catch (e: Exception) {
-                    Log.e(TAG, "Failed to open URL via MRAID: $url", e)
+                } catch (e: android.content.ActivityNotFoundException) {
+                    Log.e(TAG, "Failed to open URL via MRAID (ActivityNotFound): $url", e)
+                } catch (e: SecurityException) {
+                    Log.e(TAG, "Failed to open URL via MRAID (SecurityException): $url", e)
                 }
             }
         }
@@ -257,9 +268,12 @@ class InterstitialAd(
                     intent.setDataAndType(Uri.parse(url), "video/*")
                     intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                     ad.context.startActivity(intent)
-                } catch (e: Exception) {
-                    Log.e(TAG, "Failed to play video via MRAID: $url", e)
-                    mraidWebView.fireErrorEvent("Failed to play video: ${e.message}", "playVideo")
+                } catch (e: android.content.ActivityNotFoundException) {
+                    Log.e(TAG, "Failed to play video via MRAID (ActivityNotFound): $url", e)
+                    mraidWebView.fireErrorEvent("Failed to play video (ActivityNotFound): ${e.message}", "playVideo")
+                } catch (e: SecurityException) {
+                    Log.e(TAG, "Failed to play video via MRAID (SecurityException): $url", e)
+                    mraidWebView.fireErrorEvent("Failed to play video (SecurityException): ${e.message}", "playVideo")
                 }
             }
         }

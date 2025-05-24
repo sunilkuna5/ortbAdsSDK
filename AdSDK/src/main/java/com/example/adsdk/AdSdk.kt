@@ -79,11 +79,13 @@ object AdSdk {
     // Internal logging helper (Example - a real SDK would have a dedicated LogUtil)
     internal fun log(level: LogLevel, tag: String, message: String, throwable: Throwable? = null) {
         // Allow ERROR logs even before initialization for critical issues.
+        val isLogLevelSufficientForPreInit = this::currentLogLevel.isInitialized &&
+                level.ordinal <= this.currentLogLevel.ordinal &&
+                this.currentLogLevel != LogLevel.NONE
+
         if (!initialized && level != LogLevel.ERROR && level != LogLevel.WARNING) { // Allow WARNING too
-             // For pre-init logs, if we want to show them if setLogLevel was called first:
-            if (this::currentLogLevel.isInitialized && level.ordinal <= this.currentLogLevel.ordinal && this.currentLogLevel != LogLevel.NONE) {
-                // Log only if the explicitly set pre-init log level allows it.
-            } else {
+            // For pre-init logs, if we want to show them if setLogLevel was called first:
+            if (!isLogLevelSufficientForPreInit) {
                 return
             }
         }
