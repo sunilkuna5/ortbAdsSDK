@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <declare-styleable name="BannerAdView">
+        <attr name="adUnitId" format="string" />
+        <attr name="adSize" format="string" /> <!-- e.g., "BANNER_320X50", "LEADERBOARD_728X90" -->
+        <attr name="refreshRate" format="integer" />
+    </declare-styleable>
+</resources>
