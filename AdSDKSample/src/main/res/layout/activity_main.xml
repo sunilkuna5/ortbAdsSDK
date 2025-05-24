@@ -1,0 +1,115 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:padding="16dp"
+    tools:context=".MainActivity">
+
+    <!-- Banner Ad -->
+    <com.example.adsdk.BannerAdView
+        android:id="@+id/bannerAdView"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_alignParentTop="true"
+        android:layout_centerHorizontal="true"
+        android:layout_marginTop="20dp"
+        app:adSize="BANNER_320X50"
+        app:adUnitId="test-banner-ad-unit" />
+        <!-- Note: Default refreshRate is 30s, can be set via app:refreshRate="60" -->
+
+    <!-- Interstitial Ad Buttons -->
+    <Button
+        android:id="@+id/btnLoadInterstitial"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_below="@id/bannerAdView"
+        android:layout_centerHorizontal="true"
+        android:layout_marginTop="20dp"
+        android:text="Load Interstitial" />
+
+    <Button
+        android:id="@+id/btnShowInterstitial"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_below="@id/btnLoadInterstitial"
+        android:layout_centerHorizontal="true"
+        android:layout_marginTop="10dp"
+        android:text="Show Interstitial" />
+
+    <!-- Native Ad Section -->
+    <Button
+        android:id="@+id/btnLoadNativeAd"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_below="@id/btnShowInterstitial"
+        android:layout_centerHorizontal="true"
+        android:layout_marginTop="20dp"
+        android:text="Load Native Ad" />
+
+    <LinearLayout
+        android:id="@+id/nativeAdContainer"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_below="@id/btnLoadNativeAd"
+        android:layout_marginTop="10dp"
+        android:orientation="vertical"
+        android:padding="10dp"
+        android:background="#f0f0f0">
+
+        <ImageView
+            android:id="@+id/nativeAdIcon"
+            android:layout_width="50dp"
+            android:layout_height="50dp"
+            android:layout_gravity="center_horizontal"
+            android:contentDescription="Native Ad Icon"
+            tools:srcCompat="@tools:sample/avatars" />
+
+        <TextView
+            android:id="@+id/nativeAdTitle"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center_horizontal"
+            android:layout_marginTop="5dp"
+            android:textSize="18sp"
+            android:textStyle="bold"
+            tools:text="Native Ad Title" />
+            
+        <ImageView
+            android:id="@+id/nativeAdMainImage"
+            android:layout_width="match_parent"
+            android:layout_height="150dp"
+            android:scaleType="centerCrop"
+            android:layout_marginTop="5dp"
+            android:contentDescription="Native Ad Main Image"
+            tools:srcCompat="@tools:sample/backgrounds/scenic" />
+
+        <TextView
+            android:id="@+id/nativeAdDescription"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center_horizontal"
+            android:layout_marginTop="5dp"
+            tools:text="This is a sample native ad description text." />
+
+        <TextView
+            android:id="@+id/nativeAdSponsoredBy"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center_horizontal"
+            android:textSize="12sp"
+            android:layout_marginTop="3dp"
+            tools:text="Sponsored by ACME Corp" />
+
+
+        <Button
+            android:id="@+id/nativeAdCtaButton"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center_horizontal"
+            android:layout_marginTop="10dp"
+            tools:text="Learn More" />
+    </LinearLayout>
+
+</RelativeLayout>

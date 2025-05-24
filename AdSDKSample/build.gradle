@@ -1,0 +1,67 @@
+plugins {
+    id 'com.android.application'
+    id 'org.jetbrains.kotlin.android'
+}
+
+android {
+    namespace 'com.example.adsdksample'
+    compileSdk 33
+
+    defaultConfig {
+        applicationId "com.example.adsdksample"
+        minSdk 21
+        targetSdk 33
+        versionCode 1
+        versionName "1.0"
+
+        testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+        }
+    }
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_1_8
+        targetCompatibility JavaVersion.VERSION_1_8
+    }
+    kotlinOptions {
+        jvmTarget = '1.8'
+    }
+    // Packaging options to avoid conflicts if any library uses similar native libs (e.g. OkHttp)
+    packagingOptions {
+        resources {
+            excludes += '/META-INF/{AL2.0,LGPL2.1}'
+            excludes += 'META-INF/LICENSE.md'
+            excludes += 'META-INF/LICENSE-notice.md'
+        }
+    }
+    buildFeatures {
+        viewBinding true // Enable ViewBinding for easier view access
+    }
+}
+
+dependencies {
+    implementation project(":AdSDK") // AdSDK library dependency
+
+    implementation 'androidx.core:core-ktx:1.9.0'
+    implementation 'androidx.appcompat:appcompat:1.6.1'
+    implementation 'com.google.android.material:material:1.8.0'
+    implementation 'androidx.constraintlayout:constraintlayout:2.1.4'
+
+    testImplementation 'junit:junit:4.13.2' // Standard JUnit 4 for unit tests if any in sample app
+
+    // Espresso UI Testing
+    androidTestImplementation 'androidx.test.espresso:espresso-core:3.5.1'
+    androidTestImplementation 'androidx.test.ext:junit:1.1.5'
+    androidTestImplementation 'androidx.test:runner:1.5.2'
+    androidTestImplementation 'androidx.test:rules:1.5.0'
+    
+    // Optional: For webview interactions in Espresso if needed (not directly used for MRAID checks here)
+    // androidTestImplementation 'androidx.test.espresso:espresso-web:3.5.1'
+
+    // Optional: Idling Resources for Espresso
+    androidTestImplementation 'androidx.test.espresso:espresso-idling-resource:3.5.1'
+}

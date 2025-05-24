@@ -15,8 +15,16 @@ import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.RequestBody.Companion.toRequestBody
 import java.io.IOException
 import java.util.*
+import androidx.test.espresso.idling.CountingIdlingResource // Import for IdlingResource
 
 class AdLoader {
+
+    companion object {
+        // For testing: IdlingResource to track ongoing ad loads.
+        // Should only be used in test builds or through a test-only interface.
+        @JvmField
+        val adLoaderIdlingResource = CountingIdlingResource("AdLoaderResource")
+    }
 
     private val client = OkHttpClient()
     private val moshi = Moshi.Builder().add(KotlinJsonAdapterFactory()).build()
@@ -42,6 +50,10 @@ class AdLoader {
         }
 
         val context = AdSdk.getApplicationContext()!!
+        // Increment IdlingResource before starting async operation
+        if (AdSdk.isTestMode()) { // Only increment in test mode for safety
+            adLoaderIdlingResource.increment()
+        }
         val openRTBRequest = buildOpenRTBRequest(adRequest, context)
 
         val jsonRequest: String
@@ -63,45 +75,57 @@ class AdLoader {
             .build()
 
         client.newCall(request).enqueue(object : Callback {
+            private fun safeDecrement() {
+                if (AdSdk.isTestMode() && !adLoaderIdlingResource.isIdleNow) {
+                    adLoaderIdlingResource.decrement()
+                }
+            }
+
             override fun onFailure(call: Call, e: IOException) {
                 Log.e(TAG, "Ad request failed: ${e.message}", e)
                 listener.onError(AdError(AdErrorCodes.NETWORK_ERROR, e.message ?: "Network error"))
+                safeDecrement()
             }
 
             override fun onResponse(call: Call, response: Response) {
-                if (response.code == 204) { // HTTP 204 No Content means No Bid
-                    Log.i(TAG, "Ad server returned HTTP 204: No Bid")
-                    listener.onError(AdError(AdErrorCodes.NO_FILL, "No ad available (No Bid)"))
-                    return
-                }
-
-                if (!response.isSuccessful) {
-                    Log.e(TAG, "Ad server returned error: ${response.code} ${response.message}")
-                    val responseBodyString = response.body?.string() ?: "Empty error body"
-                    Log.e(TAG, "Error body: $responseBodyString")
-                    listener.onError(AdError(response.code, "Server error: ${response.message} - $responseBodyString"))
-                    return
-                }
-
-                val responseBody = response.body?.string()
-                if (responseBody == null) {
-                    Log.e(TAG, "Ad server returned empty response body.")
-                    listener.onError(AdError(AdErrorCodes.NO_FILL, "Empty response body"))
-                    return
-                }
-                Log.d(TAG, "OpenRTB Response: $responseBody")
-
                 try {
+                    if (response.code == 204) { // HTTP 204 No Content means No Bid
+                        Log.i(TAG, "Ad server returned HTTP 204: No Bid")
+                        listener.onError(AdError(AdErrorCodes.NO_FILL, "No ad available (No Bid)"))
+                        safeDecrement() // Decrement before early return
+                        return
+                    }
+
+                    if (!response.isSuccessful) {
+                        Log.e(TAG, "Ad server returned error: ${response.code} ${response.message}")
+                        val responseBodyString = response.body?.string() ?: "Empty error body"
+                        Log.e(TAG, "Error body: $responseBodyString")
+                        listener.onError(AdError(response.code, "Server error: ${response.message} - $responseBodyString"))
+                        safeDecrement() // Decrement before early return
+                        return
+                    }
+
+                    val responseBody = response.body?.string()
+                    if (responseBody == null) {
+                        Log.e(TAG, "Ad server returned empty response body.")
+                        listener.onError(AdError(AdErrorCodes.NO_FILL, "Empty response body"))
+                        safeDecrement() // Decrement before early return
+                        return
+                    }
+                    Log.d(TAG, "OpenRTB Response: $responseBody")
+
                     val openRTBResponse = openRTBResponseAdapter.fromJson(responseBody)
                     if (openRTBResponse == null) {
                         Log.e(TAG, "Failed to parse OpenRTBResponse.")
                         listener.onError(AdError(AdErrorCodes.SERVER_ERROR, "Failed to parse ad response"))
+                        // safeDecrement() will be called in finally
                         return
                     }
 
                     if (openRTBResponse.nbr != null) {
                         Log.i(TAG, "OpenRTB No-Bid Reason Code: ${openRTBResponse.nbr}")
                         listener.onError(AdError(mapNbrToAdErrorCode(openRTBResponse.nbr), "No ad available (NBR: ${openRTBResponse.nbr})"))
+                        // safeDecrement() will be called in finally
                         return
                     }
 
@@ -109,6 +133,7 @@ class AdLoader {
                     if (firstBid == null || firstBid.adMarkup == null) {
                         Log.i(TAG, "No valid bid found in OpenRTB response.")
                         listener.onError(AdError(AdErrorCodes.NO_FILL, "No ad available (empty bid)"))
+                        // safeDecrement() will be called in finally
                         return
                     }
                     
@@ -138,6 +163,7 @@ class AdLoader {
                             // Depending on strictness, either error out or try to render as HTML if possible
                             // For now, let's assume if NATIVE was requested, it must be valid native markup
                             listener.onError(AdError(AdErrorCodes.SERVER_ERROR, "Invalid Native Ad Markup received"))
+                            // safeDecrement() will be called in finally
                             return
                         }
                     }
@@ -155,6 +181,8 @@ class AdLoader {
                 } catch (e: Exception) {
                     Log.e(TAG, "Failed to parse or process OpenRTB response: ${e.message}", e)
                     listener.onError(AdError(AdErrorCodes.SERVER_ERROR, "Error processing ad response: ${e.message}"))
+                } finally {
+                    safeDecrement()
                 }
             }
         })
